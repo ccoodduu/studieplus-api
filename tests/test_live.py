@@ -165,3 +165,13 @@ async def test_schedule_range_parses_strictly(scraper):
         by_week[l.start_time.isocalendar()[1]] += 1
     for week in sorted(by_week):
         print(f"  Week {week}: {by_week[week]} lessons")
+
+
+async def test_assignments_parse_strictly(scraper):
+    """The strict fetch used by the calendar feed must agree with get_homework."""
+    strict_all = scraper.get_assignments(only_open=False)
+    lenient_all = await scraper.get_homework(only_open=False)
+
+    assert len(strict_all) == len(lenient_all)
+    for a in strict_all:
+        assert_assignment_shape(a)

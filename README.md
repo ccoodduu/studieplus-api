@@ -29,7 +29,7 @@ for lesson in scraper.get_lessons_in_range(start, start + timedelta(days=6)):
 
 `get_lessons_in_range` parser *strict*. Hvis Studie+ har ændret deres GWT-struktur, rejser den en fejl i stedet for stille og roligt at returnere forkerte eller manglende timer.
 
-Andre metoder: `parse_schedule(week_offset)`, `get_homework(only_open)`, `get_assignment_details(...)`, `get_lesson_files_with_urls(lesson_id)` m.fl. Se `requests_scraper.py`.
+Andre metoder: `get_assignments(only_open)` (også strict), `parse_schedule(week_offset)`, `get_homework(only_open)`, `get_assignment_details(...)`, `get_lesson_files_with_urls(lesson_id)` m.fl. Se `requests_scraper.py`.
 
 ## Tests
 

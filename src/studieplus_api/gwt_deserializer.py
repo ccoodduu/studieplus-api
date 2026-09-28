@@ -1086,15 +1086,15 @@ class GWTDeserializer:
             'end': end,
         }
 
-    def parse_assignments(self, only_open: bool = False) -> List[dict]:
+    def parse_assignments(self, only_open: bool = False, strict: bool = False) -> List[dict]:
         """
         Parse assignment (Aflevering) objects from GWT response.
 
         Parses from the root ArrayList and extracts OpgaveElev data.
 
         Args:
-            debug: Print debug info
             only_open: If True, only return non-submitted assignments
+            strict: If True, raise instead of returning a silently empty/partial result
 
         Returns list of assignment dictionaries with:
         - subject
@@ -1114,7 +1114,14 @@ class GWTDeserializer:
         try:
             root = self._read_object()
         except Exception as e:
+            if strict:
+                raise
             return []
+
+        if strict:
+            self._raise_if_misaligned()
+            if not isinstance(root, list):
+                raise ValueError(f"Unexpected top-level assignments object: {root!r:.200}")
 
         if not isinstance(root, list):
             return []
@@ -1195,6 +1202,14 @@ class GWTDeserializer:
             if isinstance(obj, dict) and (obj.get('_unknown') or obj.get('_error'))
         })
 
+    def _raise_if_misaligned(self):
+        unparsed = self.unparsed_classes()
+        if unparsed:
+            raise ValueError(f"Unparsed GWT classes (stack likely misaligned): {unparsed}")
+        # The payload holds only the returned object, so a correct parse consumes all of it
+        if self.pos != 0:
+            raise ValueError(f"{self.pos} values left unread on the GWT stack (stack misaligned)")
+
     def parse_lessons_direct(self, strict: bool = False) -> List[SkemaLesson]:
         """
         Parse lessons using top-down deserialization of PersSkemaData.
@@ -1216,12 +1231,7 @@ class GWTDeserializer:
             return []
 
         if strict:
-            unparsed = self.unparsed_classes()
-            if unparsed:
-                raise ValueError(f"Unparsed GWT classes (stack likely misaligned): {unparsed}")
-            # The payload holds only the returned object, so a correct parse consumes all of it
-            if self.pos != 0:
-                raise ValueError(f"{self.pos} values left unread on the GWT stack (stack misaligned)")
+            self._raise_if_misaligned()
             if not isinstance(top, dict) or top.get('_class') != 'PersSkemaData':
                 raise ValueError(f"Unexpected top-level schedule object: {top!r:.200}")
 

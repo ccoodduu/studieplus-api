@@ -935,6 +935,17 @@ class StudiePlusRequestsScraper(BaseStudiePlusScraper):
     # ASSIGNMENTS (stub implementations)
     # ============================================================
 
+    def get_assignments(self, only_open: bool = True) -> List[Dict]:
+        """
+        Fetch assignments, parsed strictly: raises if the response contains GWT types
+        we can't deserialize, instead of silently returning a misaligned/empty result.
+        """
+        deserializer = GWTDeserializer(self.get_assignments_raw())
+        assignments = deserializer.parse_assignments(only_open=only_open, strict=True)
+        for a in assignments:
+            a['id'] = str(a.get('container_id', ''))
+        return assignments
+
     async def get_homework(self, only_open: bool = True) -> List[Dict]:
         """
         Get assignments from GWT-RPC API using proper GWT deserializer.

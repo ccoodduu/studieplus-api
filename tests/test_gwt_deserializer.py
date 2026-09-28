@@ -132,3 +132,13 @@ def test_nested_class_is_not_routed_to_its_outer_class():
 
     assert obj.get("_unknown"), f"routed to another deserializer: {obj!r}"
     assert parser.pos == 0
+
+
+def test_assignments_strict_mode():
+    empty = Payload().array(0)
+    assert GWTDeserializer(empty.response()).parse_assignments(strict=True) == []
+
+    with_unread_value = Payload().array(0).null()
+    assert GWTDeserializer(with_unread_value.response()).parse_assignments() == []
+    with pytest.raises(ValueError, match="left unread"):
+        GWTDeserializer(with_unread_value.response()).parse_assignments(strict=True)
