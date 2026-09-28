@@ -11,9 +11,12 @@ from datetime import datetime, timedelta
 from dotenv import load_dotenv
 from .logger import logger
 from .base_scraper import BaseStudiePlusScraper
-from .gwt_deserializer import parse_schedule_response, GWTDeserializer
+from .gwt_deserializer import parse_schedule_response, GWTDeserializer, SkemaLesson
 
 load_dotenv()
+
+# (connect, read) seconds — without a timeout a stalled connection blocks forever
+REQUEST_TIMEOUT = (10, 60)
 
 
 class GWTParser:
@@ -78,7 +81,7 @@ class StudiePlusRequestsScraper(BaseStudiePlusScraper):
     def _find_school_instnr(self) -> Optional[str]:
         """Find school institution number."""
         logger.info(f"Looking up school: {self.school}")
-        response = self.session.get(f"{self.base_url}/")
+        response = self.session.get(f"{self.base_url}/", timeout=REQUEST_TIMEOUT)
 
         match = re.search(r"const data = JSON\.parse\('(.+?)'\);", response.text)
         if match:
@@ -102,7 +105,7 @@ class StudiePlusRequestsScraper(BaseStudiePlusScraper):
         Returns: (permutation_hash, {service_name: service_hash})
         """
         nocache_url = f"{self.base_url}/{module}/{module}/{module}.nocache.js"
-        resp = self.session.get(nocache_url)
+        resp = self.session.get(nocache_url, timeout=REQUEST_TIMEOUT)
 
         if resp.status_code != 200:
             raise Exception(f"Could not fetch {nocache_url}")
@@ -120,7 +123,7 @@ class StudiePlusRequestsScraper(BaseStudiePlusScraper):
 
         # Fetch the cache.js to find service hashes
         cache_url = f"{self.base_url}/{module}/{module}/{perm_hash}.cache.js"
-        cache_resp = self.session.get(cache_url)
+        cache_resp = self.session.get(cache_url, timeout=REQUEST_TIMEOUT)
 
         if cache_resp.status_code != 200:
             raise Exception(f"Could not fetch {cache_url}")
@@ -187,7 +190,7 @@ class StudiePlusRequestsScraper(BaseStudiePlusScraper):
                 'instnr': instnr,
                 'acr_values': '',
                 'how': 'DIREKTE'
-            })
+            }, timeout=REQUEST_TIMEOUT)
 
             response = self.session.post(
                 f"{self.base_url}/login/doLogin",
@@ -197,7 +200,8 @@ class StudiePlusRequestsScraper(BaseStudiePlusScraper):
                     'pass': self.password,
                     'how': 'DIREKTE'
                 },
-                allow_redirects=True
+                allow_redirects=True,
+                timeout=REQUEST_TIMEOUT
             )
 
             if 'skema' in response.url or 'forside' in response.url:
@@ -222,7 +226,7 @@ class StudiePlusRequestsScraper(BaseStudiePlusScraper):
             'X-GWT-Module-Base': f"{self.base_url}/{module}/{module}/",
             'modulename': module
         }
-        response = self.session.post(service_url, data=payload, headers=headers)
+        response = self.session.post(service_url, data=payload, headers=headers, timeout=REQUEST_TIMEOUT)
         return response.text
 
     def _encode_date(self, dt: datetime) -> str:
@@ -763,6 +767,16 @@ class StudiePlusRequestsScraper(BaseStudiePlusScraper):
 
         return (lessons, week_number, year, dates)
 
+    def get_lessons_in_range(self, start_date: datetime, end_date: datetime) -> List[SkemaLesson]:
+        """
+        Fetch all lessons from start_date to end_date (both dates inclusive) in a single call.
+
+        Parses strictly: raises if the response contains GWT types we can't deserialize,
+        instead of silently returning a misaligned/empty result.
+        """
+        response = self.get_schedule_raw(start_date, end_date)
+        return parse_schedule_response(response, strict=True)
+
     async def get_schedule_homework(self) -> List[Dict]:
         """Get homework from schedule (compatibility method)."""
         lessons, _, _, _ = await self.parse_schedule(0)
@@ -1030,7 +1044,7 @@ class StudiePlusRequestsScraper(BaseStudiePlusScraper):
             output_dir = str(Path(output_dir).resolve())
             os.makedirs(output_dir, exist_ok=True)
 
-            response = self.session.get(file_url, stream=True)
+            response = self.session.get(file_url, stream=True, timeout=REQUEST_TIMEOUT)
 
             if response.status_code == 200:
                 file_path = os.path.join(output_dir, file_name)
@@ -1060,7 +1074,7 @@ class StudiePlusRequestsScraper(BaseStudiePlusScraper):
             if not self.login():
                 return {'success': False, 'error': 'Login failed'}
 
-            response = self.session.get(file_url)
+            response = self.session.get(file_url, timeout=REQUEST_TIMEOUT)
 
             if response.status_code == 200:
                 content_type = response.headers.get('content-type', 'application/octet-stream')

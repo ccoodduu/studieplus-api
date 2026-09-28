@@ -77,6 +77,8 @@ class GWTDeserializer:
             'dk.uddata.model.skema.SkemaBegivenhed$LokalerISkema': self._deserialize_lokaler,
             'dk.uddata.model.skema.SkemaBegivenhed$MedarbejderISkema': self._deserialize_medarbejder,
             'dk.uddata.model.skema.SkemaBegivenhed$AktiviteterISkema': self._deserialize_aktiviteter,
+            'dk.uddata.model.skema.SkemaBegivenhed$ElevISkema': self._deserialize_elev_i_skema,
+            'dk.uddata.model.skema.SkemaBegivenhed$FagISkema': self._deserialize_fag_i_skema,
             'dk.uddata.model.skema.SkemaBegivenhed$Status': self._deserialize_enum,
             'dk.uddata.model.skemanoter.SkemaNote2': self._deserialize_skema_note,
             'dk.uddata.model.skemanoter.Note': self._deserialize_note,
@@ -239,16 +241,10 @@ class GWTDeserializer:
             # Not a class marker - this is unexpected, return raw value
             return b
 
-        # Find deserializer by matching class name prefix (most specific match wins)
-        deserializer = None
-        best_match = ""
-        for class_prefix, func in self._deserializers.items():
-            if class_str.startswith(class_prefix) and len(class_prefix) > len(best_match):
-                deserializer = func
-                best_match = class_prefix
-
-        # if deserializer:
-        #     print(f"DEBUG _read_object: class={class_str[:50]}, deserializer={best_match}, pos={self.pos}")
+        # Exact class-name match: a prefix match would let e.g.
+        # SkemaBegivenhed$ElevISkema fall through to the SkemaBegivenhed deserializer.
+        class_name = class_str.rsplit('/', 1)[0]
+        deserializer = self._deserializers.get(class_name)
 
         if deserializer is None:
             # Unknown type - create placeholder and skip
@@ -369,6 +365,33 @@ class GWTDeserializer:
         d = self._read_string()  # string (hold code)
         e = self._pop()  # int
         return {'a': a, 'b': b, 'c': c, 'd': d, 'e': e}
+
+    def _deserialize_elev_i_skema(self) -> dict:
+        """
+        Deserialize ElevISkema (wrg function in current skema JS).
+        Present only in some weeks (e.g. events with individually listed students).
+
+        b.a = Cqd(a, a.b[--a.a])  // string
+        b.b = Cqd(a, a.b[--a.a])  // string
+        b.c = a.b[--a.a]         // int
+        b.d = Cqd(a, a.b[--a.a])  // string
+        """
+        a = self._read_string()
+        b = self._read_string()
+        c = self._pop()
+        d = self._read_string()
+        return {'a': a, 'b': b, 'c': c, 'd': d}
+
+    def _deserialize_fag_i_skema(self) -> dict:
+        """
+        Deserialize FagISkema (Grg function in current skema JS).
+
+        b.a = a.b[--a.a]         // int
+        b.b = Cqd(a, a.b[--a.a])  // string
+        """
+        a = self._pop()
+        b = self._read_string()
+        return {'a': a, 'b': b}
 
     def _deserialize_enum(self) -> dict:
         """
@@ -787,7 +810,7 @@ class GWTDeserializer:
         if isinstance(start, datetime):
             lesson.start_time = start
 
-        # b.S = ? (type 177)
+        # b.S = Status (SkemaBegivenhed$Status enum — sync status, not cancellation)
         S = self._read_object()
 
         # b.T = ? (int)
@@ -1165,13 +1188,22 @@ class GWTDeserializer:
 
         return assignments
 
-    def parse_lessons_direct(self) -> List[SkemaLesson]:
+    def unparsed_classes(self) -> List[str]:
+        """Classes that had no deserializer or failed to deserialize — a sign of stack drift."""
+        return sorted({
+            obj['_class'] for obj in self.objects
+            if isinstance(obj, dict) and (obj.get('_unknown') or obj.get('_error'))
+        })
+
+    def parse_lessons_direct(self, strict: bool = False) -> List[SkemaLesson]:
         """
         Parse lessons using top-down deserialization of PersSkemaData.
 
         Notes are attached to their owning lesson via the lesson_id key in
         PersSkemaData.b.B (HashMap {lesson_id -> SkemaNote2}). This is the
         same linkage the server uses, so `has_files` is per-lesson accurate.
+
+        strict=True raises instead of returning a silently empty/partial result.
         """
         self.pos = len(self.data)
         self.objects = []
@@ -1179,7 +1211,19 @@ class GWTDeserializer:
         try:
             top = self._read_object()
         except Exception:
+            if strict:
+                raise
             return []
+
+        if strict:
+            unparsed = self.unparsed_classes()
+            if unparsed:
+                raise ValueError(f"Unparsed GWT classes (stack likely misaligned): {unparsed}")
+            # The payload holds only the returned object, so a correct parse consumes all of it
+            if self.pos != 0:
+                raise ValueError(f"{self.pos} values left unread on the GWT stack (stack misaligned)")
+            if not isinstance(top, dict) or top.get('_class') != 'PersSkemaData':
+                raise ValueError(f"Unexpected top-level schedule object: {top!r:.200}")
 
         if not isinstance(top, dict):
             return []
@@ -1212,7 +1256,7 @@ class GWTDeserializer:
         return lessons
 
 
-def parse_schedule_response(response: str) -> List[SkemaLesson]:
+def parse_schedule_response(response: str, strict: bool = False) -> List[SkemaLesson]:
     """Parse a StudiePlus schedule GWT response into a list of lessons."""
     parser = GWTDeserializer(response)
-    return parser.parse_lessons_direct()
+    return parser.parse_lessons_direct(strict=strict)

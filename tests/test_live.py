@@ -14,6 +14,7 @@ Run with:
 Skips automatically if credentials are missing in .env.
 """
 from collections import defaultdict
+from datetime import datetime, timedelta
 
 from conftest import (
     SUB,
@@ -22,7 +23,9 @@ from conftest import (
     assert_lesson_shape,
     banner,
     fmt_flags,
+    looks_like_gwt_leak,
 )
+from studieplus_scraper.calendar_export import lesson_uid, lessons_to_ics, schedule_window
 
 
 async def test_schedule_this_week(scraper):
@@ -137,3 +140,31 @@ async def test_lesson_note_and_files(scraper):
             print(f"    {f['url']}")
         else:
             print(f"    (no URL — id={f['id']})")
+
+
+async def test_calendar_feed_window(scraper):
+    """The ICS feed's window (1 week back, 4 ahead) fetched in one call must parse
+    strictly: an unregistered GWT type in any of those weeks would otherwise
+    silently drop or garble lessons in the calendar."""
+    start, end = schedule_window(datetime.now(), weeks_back=1, weeks_ahead=4)
+    lessons = scraper.get_lessons_in_range(start, end)
+
+    assert lessons, "Got 0 lessons for a 6-week window — is something broken?"
+    for lesson in lessons:
+        assert lesson.start_time, f"Lesson without start time: {lesson!r}"
+        assert start <= lesson.start_time < end + timedelta(days=1)
+        for text in (lesson.subject, lesson.note, lesson.homework, *lesson.rooms, *lesson.teachers):
+            assert not looks_like_gwt_leak(text), \
+                f"{text!r} looks like a GWT internal — parser misaligned?"
+
+    ics = lessons_to_ics(lessons)
+    # Back-to-back lessons are merged, so there are at most as many events as lessons
+    assert 0 < ics.count("BEGIN:VEVENT") <= len({lesson_uid(l) for l in lessons})
+
+    banner(f"CALENDAR FEED — {start:%d.%m} to {end:%d.%m.%Y}")
+    by_week = defaultdict(int)
+    for l in lessons:
+        by_week[l.start_time.isocalendar()[1]] += 1
+    for week in sorted(by_week):
+        print(f"  Week {week}: {by_week[week]} lessons")
+    print(f"\n{ics.count('BEGIN:VEVENT')} events, {len(ics.encode('utf-8'))} bytes")

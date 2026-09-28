@@ -76,6 +76,11 @@ Vigtige felter:
 ### ArrayList, UDate, LokalerISkema, MedarbejderISkema
 Se `gwt_deserializer.py` for implementering — følger JS præcist.
 
+### Klasse-opslag er EKSAKT
+`_read_object` slår deserializer op på præcist klassenavn (før `/hash`). Tidligere prefix-match fik
+`SkemaBegivenhed$ElevISkema` til at blive læst som en hel `SkemaBegivenhed` → stack drift i uger med den type.
+`parse_schedule_response(..., strict=True)` fejler højlydt på uregistrerede klasser i stedet for at returnere [].
+
 ---
 
 ## Fil-download Flow (3 trin)
@@ -131,4 +136,6 @@ selve dataen er korrekt.
 - `src/studieplus_scraper/requests_scraper.py` — HTTP-baseret scraper (GWT-RPC kald)
 - `src/studieplus_scraper/api.py` — API lag mellem scraper og MCP
 - `src/mcp_server/server.py` — MCP server tools
+- `src/studieplus_scraper/calendar_export.py` — lektioner → ICS (RFC 5545)
+- `src/calendar_server/server.py` — ICS-feed til Google Kalender (bag Tailscale Funnel)
 - `GWT_REVERSE_ENGINEERING.md` — Guide til at reverse engineere nye GWT typer
