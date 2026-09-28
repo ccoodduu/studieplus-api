@@ -1,6 +1,9 @@
 """
 Lightweight HTTP-based scraper for StudiePlus using GWT-RPC API.
-No browser required - runs on Raspberry Pi with minimal RAM (~30MB vs ~300MB for Playwright).
+No browser required - runs on Raspberry Pi with minimal RAM (~30MB).
+
+Credentials come from the arguments or the STUDIEPLUS_* environment variables;
+loading a .env file is up to the application.
 """
 import requests
 import os
@@ -8,12 +11,9 @@ import re
 import json
 from typing import List, Dict, Optional, Tuple
 from datetime import datetime, timedelta
-from dotenv import load_dotenv
 from .logger import logger
 from .base_scraper import BaseStudiePlusScraper
 from .gwt_deserializer import parse_schedule_response, GWTDeserializer, SkemaLesson
-
-load_dotenv()
 
 # (connect, read) seconds — without a timeout a stalled connection blocks forever
 REQUEST_TIMEOUT = (10, 60)
@@ -695,7 +695,7 @@ class StudiePlusRequestsScraper(BaseStudiePlusScraper):
 
     async def parse_schedule(self, week_offset: int = 0, fetch_notes: bool = False) -> Tuple[List[Dict], str, str, List[str]]:
         """
-        Parse schedule and return lessons in same format as Playwright scraper.
+        Parse one week of the schedule into lesson dicts (the format the MCP api layer uses).
 
         Args:
             week_offset: Weeks from current (0=this week, 1=next week, -1=last week)
@@ -1099,7 +1099,7 @@ class StudiePlusRequestsScraper(BaseStudiePlusScraper):
             return {'success': False, 'error': str(e)}
 
     # ============================================================
-    # CONTEXT MANAGER SUPPORT (for compatibility with Playwright)
+    # CONTEXT MANAGER SUPPORT (used as `async with scraper:` by the MCP)
     # ============================================================
 
     async def __aenter__(self):

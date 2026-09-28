@@ -1,9 +1,18 @@
-# StudiePlus MCP Server - Projektviden
+# studieplus-api - Projektviden
 
 ## Projekt
 
-MCP server der giver Claude Desktop adgang til en dansk elevs skoledata fra Studie+.
-Bruger GWT-RPC API direkte (ingen browser) via `requests`-biblioteket.
+Python-klient til Studie+ (pakken `studieplus_api`). Bruger GWT-RPC API direkte
+(ingen browser) via `requests`-biblioteket.
+
+Bruges af [studieplus-mcp](https://github.com/ccoodduu/studieplus-mcp) og
+[studieplus-calendar](https://github.com/ccoodduu/studieplus-calendar), som begge
+installerer nyeste `main` herfra. En ændring her rammer altså begge ved næste
+geninstallation. **Kalenderen kører på en Raspberry Pi med Python 3.9**, så koden skal
+være 3.9-kompatibel (ingen `X | Y` type-unions, ingen `match`).
+
+Biblioteket læser ikke selv `.env`: credentials kommer fra argumenter eller
+`STUDIEPLUS_*` environment variables, som programmet der bruger det sætter.
 
 ### Krav til GWT-parsing
 - **INGEN magic numbers** eller hacky løsninger
@@ -115,27 +124,39 @@ Konfiguration ligger i `pytest.ini` (`testpaths = tests`, `asyncio_mode = auto`)
 ### Krav
 - Credentials i `.env` i projektroden: `STUDIEPLUS_USERNAME`, `STUDIEPLUS_PASSWORD`,
   `STUDIEPLUS_SCHOOL`. Mangler de, **skippes** testene (fejler ikke).
-- `requirements-dev.txt` skal være installeret (`pytest`, `pytest-asyncio`, `python-dotenv`).
+- `pip install -r requirements-dev.txt` (installerer pakken editable + `pytest`, `pytest-asyncio`, `python-dotenv`).
 
 ### Filer
 - `tests/conftest.py` — `scraper`-fixture (login) + shape-helpers
   (`assert_lesson_shape`, `assert_assignment_shape`, `assert_file_shape`,
   `looks_like_gwt_leak`).
-- `tests/test_live.py` — selve testene.
+- `tests/test_live.py` — live-testene, inkl. et 6-ugers vindue parset strict.
+- `tests/test_gwt_deserializer.py` — offline tests med et syntetisk GWT-svar (rigtige svar
+  indeholder andre elevers navne og må ikke committes).
 
 **Bemærk:** Æ/ø/å vises som `�` i PowerShell-output pga. terminal-encoding —
 selve dataen er korrekt.
 
 ---
 
+## Hent GWT-kildekoden live
+
+`gwt_analysis/`-filerne findes ikke i repo'et. For at reverse engineere en ny type:
+1. Efter login + et servicekald har scraperen `skema_permutation`.
+2. Hent `{base_url}/skema/skema/{perm}.cache.js` med `scraper.session.get(...)` (~2 MB).
+3. Find klasse-variablen: `(\w+)='dk\.uddata\.model\.skema\.<Klasse>/'`.
+4. Find registry-entry `a[VAR]=[instantiate, deserialize, serialize]` — den **midterste** er deserializeren.
+5. Port 1:1 i JS-rækkefølge (funktionsnavnene skifter mellem permutationer; kig efter mønstret
+   `a.b[--a.a]` = int, streng-læser med `a.b[--a.a]` som argument, objekt-læser `xxx(a)`).
+
+Diagnose af stack drift: `parse_schedule_response(raw, strict=True)` rejser med klassenavnet
+(eller antal ulæste værdier). Hent flere uger frem og tilbage — nye typer optræder kun i
+nogle uger (fx `Fraver`, `SkemaBegivenhed$ElevISkema`).
+
+---
+
 ## Vigtige Filer
 
-- `gwt_analysis/source_babel_inlined.js` — JS med inlinede funktioner (brug til analyse)
-- `gwt_analysis/source_clean.js` — Original JS kode
-- `src/studieplus_scraper/gwt_deserializer.py` — Stack-baseret GWT parser
-- `src/studieplus_scraper/requests_scraper.py` — HTTP-baseret scraper (GWT-RPC kald)
-- `src/studieplus_scraper/api.py` — API lag mellem scraper og MCP
-- `src/mcp_server/server.py` — MCP server tools
-- `src/studieplus_scraper/calendar_export.py` — lektioner → ICS (RFC 5545)
-- `src/calendar_server/server.py` — ICS-feed til Google Kalender (bag Tailscale Funnel)
+- `src/studieplus_api/gwt_deserializer.py` — Stack-baseret GWT parser
+- `src/studieplus_api/requests_scraper.py` — HTTP-baseret scraper (GWT-RPC kald)
 - `GWT_REVERSE_ENGINEERING.md` — Guide til at reverse engineere nye GWT typer

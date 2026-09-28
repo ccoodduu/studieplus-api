@@ -17,7 +17,7 @@ from dotenv import load_dotenv
 load_dotenv(ROOT / ".env")
 
 import pytest
-from studieplus_scraper.requests_scraper import StudiePlusRequestsScraper
+from studieplus_api.requests_scraper import StudiePlusRequestsScraper
 
 
 @pytest.fixture(scope="session")

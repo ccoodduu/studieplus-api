@@ -7,8 +7,7 @@ from datetime import datetime
 
 import pytest
 
-from studieplus_scraper.calendar_export import lessons_to_ics
-from studieplus_scraper.gwt_deserializer import GWTDeserializer, parse_schedule_response
+from studieplus_api.gwt_deserializer import GWTDeserializer, parse_schedule_response
 
 SKEMA = "dk.uddata.model.skema"
 START = datetime(2026, 9, 28, 8, 15)
@@ -108,7 +107,6 @@ def test_lesson_with_nested_types_parses_strictly():
     assert lesson.rooms == ["M1304"]
     assert lesson.teachers == ["abcd"]
     assert (lesson.start_time, lesson.end_time) == (START, END)
-    assert "SUMMARY:Matematik" in lessons_to_ics(lessons)
 
 
 def test_strict_raises_when_stack_is_not_fully_consumed():

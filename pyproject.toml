@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "studieplus-api"
+version = "0.1.0"
+description = "Python-klient til Studie+ (GWT-RPC): skema, lektier, noter, afleveringer og filer"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.9"
+dependencies = ["requests>=2.25"]
+
+[project.urls]
+Repository = "https://github.com/ccoodduu/studieplus-api"
+
+[tool.setuptools.packages.find]
+where = ["src"]
