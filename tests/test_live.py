@@ -175,3 +175,33 @@ async def test_assignments_parse_strictly(scraper):
     assert len(strict_all) == len(lenient_all)
     for a in strict_all:
         assert_assignment_shape(a)
+
+
+async def test_assignment_files_have_download_urls(scraper):
+    """Files on an assignment must come with a signed URL that actually serves
+    the file — without it the MCP has nothing to download from."""
+    open_assignments = await scraper.get_homework(only_open=True)
+    all_assignments = await scraper.get_homework(only_open=False)
+    candidates = [a for a in open_assignments + all_assignments if a.get("teacher_file_container_id")]
+
+    target = None
+    for a in candidates[:10]:
+        details = await scraper.get_assignment_details(a["id"])
+        if details.get("files"):
+            target = details
+            break
+
+    if target is None:
+        import pytest
+        pytest.skip("No assignment with files among the first 10 with a teacher file container")
+
+    for f in target["files"]:
+        assert_file_shape(f)
+        assert f.get("url"), f"Assignment file without URL: {f!r}"
+        response = scraper.session.get(f["url"], stream=True, timeout=(10, 30))
+        response.close()
+        assert response.status_code == 200, f"Signed URL returned HTTP {response.status_code}"
+
+    banner(f"ASSIGNMENT FILES — {target['subject']} — {target['assignment_title']}")
+    for f in target["files"]:
+        print(f"  - [{f['source']}] {f['name']}")
