@@ -1017,6 +1017,11 @@ class StudiePlusRequestsScraper(BaseStudiePlusScraper):
                 files.extend(student_files)
                 logger.info(f"Found {len(student_files)} student files for container_id={container_id}")
 
+            for f in files:
+                if f.get('id'):
+                    url = self._get_url_via_standard(f['id'], "opgave")
+                    f['url'] = url or ''
+
             return {
                 'assignment_title': assignment.get('title', ''),
                 'subject': assignment.get('subject', ''),
