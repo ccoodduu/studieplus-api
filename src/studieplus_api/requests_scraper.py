@@ -17,6 +17,7 @@ from .gwt_deserializer import parse_schedule_response, GWTDeserializer, SkemaLes
 
 # (connect, read) seconds — without a timeout a stalled connection blocks forever
 REQUEST_TIMEOUT = (10, 60)
+MAX_LOAD_BYTES = 20 * 1024 * 1024
 
 
 class GWTParser:
@@ -1081,36 +1082,55 @@ class StudiePlusRequestsScraper(BaseStudiePlusScraper):
 
     async def load_lesson_file(self, file_url: str, file_name: str) -> Dict:
         """
-        Load a file and return its content.
+        Load a file and return its content: text as a string, anything else as base64.
+
+        Files larger than MAX_LOAD_BYTES are refused with too_large=True, since the
+        content is meant for an LLM; download_lesson_file handles any size.
         """
         import base64
-        import mimetypes
 
         try:
             if not self.login():
                 return {'success': False, 'error': 'Login failed'}
 
-            response = self.session.get(file_url, timeout=REQUEST_TIMEOUT)
-
-            if response.status_code == 200:
-                content_type = response.headers.get('content-type', 'application/octet-stream')
-                is_text = content_type.startswith('text/') or content_type == 'application/json'
-
-                if is_text:
-                    content = response.text
-                else:
-                    content = base64.b64encode(response.content).decode('utf-8')
-
-                return {
-                    'success': True,
-                    'file_name': file_name,
-                    'content': content,
-                    'content_type': content_type,
-                    'size': len(response.content),
-                    'is_text': is_text
-                }
-            else:
+            response = self.session.get(file_url, stream=True, timeout=REQUEST_TIMEOUT)
+            if response.status_code != 200:
                 return {'success': False, 'error': f'HTTP {response.status_code}'}
+
+            too_large = {
+                'success': False,
+                'too_large': True,
+                'file_name': file_name,
+                'error': f'File is larger than {MAX_LOAD_BYTES // (1024 * 1024)} MB; use download_lesson_file instead',
+            }
+            declared_size = response.headers.get('content-length')
+            if declared_size and int(declared_size) > MAX_LOAD_BYTES:
+                response.close()
+                return {**too_large, 'size': int(declared_size)}
+
+            data = bytearray()
+            for chunk in response.iter_content(chunk_size=65536):
+                data.extend(chunk)
+                if len(data) > MAX_LOAD_BYTES:
+                    response.close()
+                    return too_large
+
+            content_type = response.headers.get('content-type', 'application/octet-stream')
+            is_text = content_type.startswith('text/') or content_type == 'application/json'
+
+            if is_text:
+                content = bytes(data).decode(response.encoding or 'utf-8', errors='replace')
+            else:
+                content = base64.b64encode(data).decode('ascii')
+
+            return {
+                'success': True,
+                'file_name': file_name,
+                'content': content,
+                'content_type': content_type,
+                'size': len(data),
+                'is_text': is_text
+            }
         except Exception as e:
             return {'success': False, 'error': str(e)}
 
