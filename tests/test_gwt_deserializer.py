@@ -142,3 +142,21 @@ def test_assignments_strict_mode():
     assert GWTDeserializer(with_unread_value.response()).parse_assignments() == []
     with pytest.raises(ValueError, match="left unread"):
         GWTDeserializer(with_unread_value.response()).parse_assignments(strict=True)
+
+
+def write_frava(p):
+    """Frava, field by field in the order of the JS deserializer."""
+    p.obj(f"{SKEMA}.Frava")
+    p.obj("java.lang.Integer").int(42).int(3).null()      # object, int, object
+    p.udate(START).string("Fravær").string(None)          # UDate, string, string
+    p.udate(START).udate(END)                             # UDate, UDate
+    p.obj(f"{SKEMA}.Frava$Status").int(1)                 # Frava$Status
+    p.string("Bemærkning")                                # string
+
+
+def test_lesson_with_frava_parses_strictly():
+    lessons = parse_schedule_response(schedule_response(extra_object=write_frava), strict=True)
+
+    assert len(lessons) == 1
+    assert lessons[0].lesson_id == 8529907
+    assert (lessons[0].start_time, lessons[0].end_time) == (START, END)
