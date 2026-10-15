@@ -228,6 +228,17 @@ class StudiePlusRequestsScraper(BaseStudiePlusScraper):
             'modulename': module
         }
         response = self.session.post(service_url, data=payload, headers=headers, timeout=REQUEST_TIMEOUT)
+
+        # Studie+ answers 401 with the login page once the session has expired
+        if response.status_code == 401:
+            logger.info("Session expired, logging in again")
+            self.logged_in = False
+            self.session.cookies.clear()
+            self.login()
+            response = self.session.post(service_url, data=payload, headers=headers, timeout=REQUEST_TIMEOUT)
+            if response.status_code == 401:
+                raise Exception("Studie+ afviste kaldet efter nyt login (HTTP 401)")
+
         return response.text
 
     def _encode_date(self, dt: datetime) -> str:

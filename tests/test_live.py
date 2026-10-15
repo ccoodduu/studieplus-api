@@ -205,3 +205,13 @@ async def test_assignment_files_have_download_urls(scraper):
     banner(f"ASSIGNMENT FILES — {target['subject']} — {target['assignment_title']}")
     for f in target["files"]:
         print(f"  - [{f['source']}] {f['name']}")
+
+
+async def test_expired_session_logs_in_again(scraper):
+    # Removing the cookies makes Studie+ answer 401, the same as an expired session
+    scraper.session.cookies.clear()
+
+    response = scraper.get_schedule_raw()
+
+    assert scraper.logged_in
+    assert response.startswith("//OK["), f"Unexpected response: {response[:100]!r}"
