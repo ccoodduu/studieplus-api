@@ -160,3 +160,25 @@ def test_lesson_with_frava_parses_strictly():
     assert len(lessons) == 1
     assert lessons[0].lesson_id == 8529907
     assert (lessons[0].start_time, lessons[0].end_time) == (START, END)
+
+
+def split_with_concat(response, chunk_size):
+    """Re-emit a response the way the server splits large ones: [a].concat([b])..."""
+    values = json.loads(response[4:])
+    chunks = [json.dumps(values[i:i + chunk_size]) for i in range(0, len(values), chunk_size)]
+    return "//OK" + chunks[0] + "".join(f".concat({chunk})" for chunk in chunks[1:])
+
+
+def test_response_split_with_concat_parses_strictly():
+    response = schedule_response()
+    split = split_with_concat(response, chunk_size=10)
+    assert ".concat(" in split
+
+    lessons = parse_schedule_response(split, strict=True)
+
+    assert lessons == parse_schedule_response(response, strict=True)
+
+
+def test_payload_with_trailing_garbage_raises():
+    with pytest.raises(ValueError, match="Unexpected data"):
+        GWTDeserializer(Payload().array(0).response() + "x")

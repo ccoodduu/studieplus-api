@@ -10,6 +10,32 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Callable, Dict, List, Optional
 
+_CONCAT_OPEN = ".concat("
+_CONCAT_CLOSE = ")"
+
+
+def decode_gwt_payload(content: str) -> list:
+    """
+    Decode the payload after the //OK or //EX prefix into one flat list.
+
+    For protocol versions below 8 the JS client evaluates the payload with
+    eval(). Large responses are emitted by the server as
+    [chunk1].concat([chunk2]).concat(...), so eval yields the chunks joined
+    into one array. Each chunk is decoded as JSON and joined the same way.
+    """
+    decoder = json.JSONDecoder()
+    content = content.strip()
+    result, pos = decoder.raw_decode(content)
+    while pos < len(content):
+        if not content.startswith(_CONCAT_OPEN, pos):
+            raise ValueError(f"Unexpected data in GWT payload at position {pos}")
+        chunk, pos = decoder.raw_decode(content, pos + len(_CONCAT_OPEN))
+        if not content.startswith(_CONCAT_CLOSE, pos):
+            raise ValueError(f"Unterminated .concat( in GWT payload at position {pos}")
+        pos += len(_CONCAT_CLOSE)
+        result = result + chunk
+    return result
+
 
 @dataclass
 class SkemaLesson:
@@ -137,7 +163,7 @@ class GWTDeserializer:
         elif content.startswith("//EX"):
             raise ValueError(f"GWT Exception: {content}")
 
-        parsed = json.loads(content)
+        parsed = decode_gwt_payload(content)
 
         # GWT-RPC format: [data..., ["strings"], flags, version]
         # String table is at index -3, flags at -2, version at -1
