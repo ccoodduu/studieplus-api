@@ -13,7 +13,7 @@ from typing import List, Dict, Optional, Tuple
 from datetime import datetime, timedelta
 from .logger import logger
 from .base_scraper import BaseStudiePlusScraper
-from .gwt_deserializer import parse_schedule_response, GWTDeserializer, SkemaLesson
+from .gwt_deserializer import parse_schedule_response, GWTDeserializer, SkemaLesson, decode_gwt_payload
 
 # (connect, read) seconds — without a timeout a stalled connection blocks forever
 REQUEST_TIMEOUT = (10, 60)
@@ -40,11 +40,11 @@ class GWTParser:
         Parse the GWT-RPC response content.
 
         The payload is a JSON array: [data..., ["string_table"], flags, version].
-        It is decoded with json.loads, which is what the JavaScript client does
-        (JSON.parse over the same payload). That way both \\uXXXX escapes and
-        literal UTF-8 are decoded exactly as the site decodes them.
+        Each array chunk is decoded as JSON, so both \\uXXXX escapes and literal
+        UTF-8 are decoded exactly as the site decodes them; see
+        decode_gwt_payload for how large responses split with .concat( are joined.
         """
-        parsed = json.loads(content)
+        parsed = decode_gwt_payload(content)
 
         # String table sits at index -3, followed by flags and version.
         if len(parsed) < 3 or not isinstance(parsed[-3], list):
@@ -434,7 +434,7 @@ class StudiePlusRequestsScraper(BaseStudiePlusScraper):
         if not response.startswith('//OK'):
             return None
         try:
-            parsed = json.loads(response[4:])
+            parsed = decode_gwt_payload(response[4:])
             if len(parsed) > 1 and isinstance(parsed[1], list) and len(parsed[1]) > 0:
                 return parsed[1][0]
         except Exception:
