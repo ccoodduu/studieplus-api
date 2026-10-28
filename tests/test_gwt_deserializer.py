@@ -182,3 +182,19 @@ def test_response_split_with_concat_parses_strictly():
 def test_payload_with_trailing_garbage_raises():
     with pytest.raises(ValueError, match="Unexpected data"):
         GWTDeserializer(Payload().array(0).response() + "x")
+
+
+def test_assignment_title_html_entities_are_decoded(monkeypatch):
+    opgave = {
+        "_class": "OpgaveElev",
+        "subject": "Programmering",
+        "title": "Søge &amp; Sortering",
+        "description": "<p>2 søgealgoritmer &amp; 2 sorteringsalgoritmer</p>",
+    }
+    parser = GWTDeserializer(Payload().array(0).response())
+    monkeypatch.setattr(parser, "_read_object", lambda: [{"opgave_elev": opgave}])
+
+    [assignment] = parser.parse_assignments()
+
+    assert assignment["title"] == "Søge & Sortering"
+    assert assignment["description"] == opgave["description"]

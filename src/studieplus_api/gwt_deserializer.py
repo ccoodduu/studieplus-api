@@ -5,6 +5,7 @@ Stack-based deserializer that mirrors the JavaScript implementation.
 See CLAUDE.md for detailed documentation of the format.
 """
 
+import html
 import json
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -1237,8 +1238,8 @@ class GWTDeserializer:
                 'container_id': afl.get('container_id'),  # ID for student's submitted files (Aflevering.d)
                 'opgave_id': opgave.get('opgave_id'),  # OpgaveElev.g — shared across assignments for same subject
                 'teacher_file_container_id': opgave.get('teacher_file_container_id'),  # OpgaveElev.t — per-assignment teacher file container
-                'subject': opgave.get('subject', ''),
-                'title': opgave.get('title', ''),
+                'subject': html.unescape(opgave.get('subject') or ''),
+                'title': html.unescape(opgave.get('title') or ''),
                 'description': opgave.get('description', ''),
                 'deadline': deadline_str,
                 'subject_budget_hours': str(opgave.get('budget_hours', '')),
