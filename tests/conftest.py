@@ -82,7 +82,7 @@ def assert_lesson_shape(lesson: dict):
 def assert_assignment_shape(a: dict):
     expected_keys = {
         "container_id", "opgave_id", "subject", "title", "description",
-        "deadline", "subject_budget_hours", "hours_spent", "class", "week",
+        "deadline", "subject_budget_hours", "student_time", "class", "week",
         "submitted", "submission_date",
     }
     missing = expected_keys - a.keys()

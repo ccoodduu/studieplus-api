@@ -78,7 +78,7 @@ async def test_assignments(scraper):
         print(f"    Class:    {a['class']}")
         print(f"    Week:     {a['week']}")
         print(f"    Status:   {status}")
-        print(f"    Time:     {a['hours_spent']}/{a['subject_budget_hours']} hours")
+        print(f"    Time:     {a['student_time']}/{a['subject_budget_hours']} hours")
 
 
 async def test_lesson_note_and_files(scraper):

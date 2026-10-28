@@ -934,8 +934,8 @@ class GWTDeserializer:
         This contains the actual assignment information we need:
         - subject (b.A)
         - title (b.v)
-        - budget_hours (b.n)
-        - spent_hours (b.o)
+        - student_time (b.n)
+        - subject_total_hours (b.o)
         - week (b.r)
         - deadline (b.D)
         - start_date (b.C)
@@ -946,8 +946,8 @@ class GWTDeserializer:
         jhd(b, Mic(a, pop))   -> b.i = string
         khd(b, Fic(a), 120)   -> b.j = object
         lhd(b, Mic(a, pop))   -> b.k = string
-        mhd(b, Pic(a))        -> b.n = float (BUDGET HOURS)
-        nhd(b, Pic(a))        -> b.o = float (SPENT HOURS)
+        mhd(b, Pic(a))        -> b.n = float (STUDENT TIME, shown as Fordybelsestid)
+        nhd(b, Pic(a))        -> b.o = float (Fordybelsestid summed over the subject)
         ohd(b, Fic(a), 10)    -> b.p = object
         phd(b, Fic(a), 10)    -> b.q = object
         qhd(b, pop)           -> b.r = int (WEEK)
@@ -967,8 +967,8 @@ class GWTDeserializer:
         i = self._read_string()      # string
         j = self._read_object()      # type 120
         k = self._read_string()      # string
-        n = float(self._pop())       # BUDGET HOURS (Pic = Number = float)
-        o = float(self._pop())       # SPENT HOURS (Pic = Number = float)
+        n = float(self._pop())       # STUDENT TIME for this assignment (Pic = Number = float)
+        o = float(self._pop())       # Fordybelsestid summed over the subject (Pic = Number = float)
         p = self._read_object()      # type 10
         q = self._read_object()      # type 10
         r = self._pop()              # WEEK number
@@ -989,8 +989,8 @@ class GWTDeserializer:
             'teacher_file_container_id': t,  # b.t = OPGA container for teacher-attached files (bId in JS)
             'subject': v,
             'title': A,
-            'budget_hours': n,
-            'spent_hours': o,
+            'student_time': n,
+            'subject_total_hours': o,
             'week': r,
             'start_date': C,
             'deadline': f,
@@ -1156,7 +1156,7 @@ class GWTDeserializer:
         Returns list of assignment dictionaries with:
         - subject
         - title
-        - budget_hours / spent_hours
+        - student_time (the assignment's Fordybelsestid) / subject_budget_hours (sum for the subject)
         - week
         - deadline
         - class_name
@@ -1242,8 +1242,8 @@ class GWTDeserializer:
                 'title': html.unescape(opgave.get('title') or ''),
                 'description': opgave.get('description', ''),
                 'deadline': deadline_str,
-                'subject_budget_hours': str(opgave.get('budget_hours', '')),
-                'hours_spent': str(opgave.get('spent_hours', '')),
+                'subject_budget_hours': str(opgave.get('subject_total_hours', '')),
+                'student_time': str(opgave.get('student_time', '')),
                 'class': opgave.get('class_name', ''),
                 'week': str(opgave.get('week', '')),
                 'submitted': submitted,

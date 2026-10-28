@@ -198,3 +198,33 @@ def test_assignment_title_html_entities_are_decoded(monkeypatch):
 
     assert assignment["title"] == "Søge & Sortering"
     assert assignment["description"] == opgave["description"]
+
+
+def write_opgave_elev(p, student_time, subject_total_hours):
+    """OpgaveElev, field by field in the order of the JS deserializer."""
+    p.obj("dk.uddata.model.opgave.OpgaveElev")
+    p.null().int(42).string("htxqr24").null().string("<p>Opgave</p>")  # object, int, string, object, string
+    p.int(student_time).int(subject_total_hours)                      # Number, Number
+    p.null(2).int(44).null().int(7).int(0)                            # object, object, int, object, int, int
+    p.string("Matematik").bool(False).string("MatAMaj2014")           # string, boolean, string
+    p.null(3).bool(False)                                             # object, UDate, UDate, boolean
+
+
+def write_aflevering(p, write_opgave):
+    """Aflevering, field by field in the order of the JS deserializer."""
+    p.obj("dk.uddata.model.opgave.Aflevering")
+    p.null(3).int(2813754).null(2).bool(False).bool(False).null()     # 3 objects, int, 2 objects, 2 booleans, object
+    write_opgave(p)                                                   # OpgaveElev
+    p.null().bool(False).null()                                       # AfleveringStatus, boolean, ArrayList
+
+
+def test_assignment_hours_are_the_assignments_own_student_time():
+    """Studie+ shows OpgaveElev.n as Fordybelsestid. OpgaveElev.o is the sum for the whole subject."""
+    p = Payload().array(1)
+    write_aflevering(p, lambda p: write_opgave_elev(p, student_time=5, subject_total_hours=121))
+
+    [assignment] = GWTDeserializer(p.response()).parse_assignments(strict=True)
+
+    assert assignment["subject"] == "Matematik"
+    assert assignment["student_time"] == "5.0"
+    assert assignment["subject_budget_hours"] == "121.0"

@@ -1038,7 +1038,7 @@ class StudiePlusRequestsScraper(BaseStudiePlusScraper):
                 'assignment_title': assignment.get('title', ''),
                 'subject': assignment.get('subject', ''),
                 'description': assignment.get('description', ''),
-                'student_time': assignment.get('hours_spent', ''),
+                'student_time': assignment.get('student_time', ''),
                 'responsible': '',
                 'course': assignment.get('class', ''),
                 'evaluation_form': '',
