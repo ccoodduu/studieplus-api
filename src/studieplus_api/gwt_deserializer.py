@@ -440,57 +440,59 @@ class GWTDeserializer:
 
     def _deserialize_skema_note(self) -> dict:
         """
-        Deserialize SkemaNote2 (hAg function).
+        Deserialize SkemaNote2 (JFg function in current skema JS).
 
-        Fields (16 total):
-        b.a = int
-        b.b = string
-        b.c = int
-        b.d = boolean
-        b.e = string (homework HTML)
-        b.f = string (homework plain text)
-        b.g = string (note HTML)
-        b.i = string (note plain text)
-        b.j = object (type 24)
-        b.k = string
-        b.n = object (type 24)
-        b.o = object (type 7 = UDate)
-        b.p = object (type 24)
-        b.q = int
+        Fields (17 total — b.a was added in front, shifting the rest one letter):
+        b.a = object (type 25 = Integer)
+        b.b = int
+        b.c = string
+        b.d = int
+        b.e = boolean
+        b.f = string (homework HTML)
+        b.g = string (homework plain text)
+        b.i = string (note HTML)
+        b.j = string (note plain text)
+        b.k = object (type 25 = Integer)
+        b.n = string
+        b.o = object (type 25 = Integer) — file container id
+        b.p = object (type 7 = UDate)
+        b.q = object (type 25 = Integer)
         b.r = int
-        b.s = string
+        b.s = int
+        b.t = string
         """
-        a = self._pop()           # int
-        b = self._read_string()   # string
-        c = self._pop()           # int
-        d = self._read_bool()     # boolean
-        e = self._read_string()   # string - PLAIN TEXT (homework text!)
-        f = self._read_string()   # string - HTML (homework html!)
-        g = self._read_string()   # string
-        i = self._read_string()   # string
-        j = self._read_object()   # object (type 24)
-        k = self._read_string()   # string
-        n = self._read_object()   # object (type 24)
-        o = self._read_object()   # object (type 7 = UDate)
-        p = self._read_object()   # object (type 24)
-        q = self._pop()           # int
+        a = self._read_object()   # object (type 25 = Integer)
+        b = self._pop()           # int
+        c = self._read_string()   # string
+        d = self._pop()           # int
+        e = self._read_bool()     # boolean
+        f = self._read_string()   # string - homework HTML
+        g = self._read_string()   # string - homework plain text
+        i = self._read_string()   # string - note HTML
+        j = self._read_string()   # string - note plain text
+        k = self._read_object()   # object (type 25 = Integer)
+        n = self._read_string()   # string
+        o = self._read_object()   # object (type 25 = Integer)
+        p = self._read_object()   # object (type 7 = UDate)
+        q = self._read_object()   # object (type 25 = Integer)
         r = self._pop()           # int
-        s = self._read_string()   # string
+        s = self._pop()           # int
+        t = self._read_string()   # string
 
-        # n is an Integer object — extract raw int value
-        file_container_id = n if isinstance(n, int) else (n.get('value') if isinstance(n, dict) else None)
+        # o is an Integer object — extract raw int value
+        file_container_id = o if isinstance(o, int) else (o.get('value') if isinstance(o, dict) else None)
 
         return {
             '_class': 'SkemaNote2',
-            'id': a,
-            'class_name': b,
-            'container_id': c,
-            'has_files': d,
-            'homework_html': e,
-            'homework_text': f,
-            'note_html': g,
-            'note_text': i,
-            'date': o,
+            'id': b,
+            'class_name': c,
+            'container_id': d,
+            'has_files': e,
+            'homework_html': f,
+            'homework_text': g,
+            'note_html': i,
+            'note_text': j,
+            'date': p,
             'file_container_id': file_container_id,
         }
 
@@ -732,14 +734,26 @@ class GWTDeserializer:
 
     def _deserialize_skema_begivenhed(self) -> SkemaLesson:
         """
-        Deserialize SkemaBegivenhed (Dqg function).
+        Deserialize SkemaBegivenhed (_vg function in current skema JS).
 
-        38 fields read in order - see CLAUDE.md for full list.
+        42 fields read in order (b.a-b.d were added in front of the former 38).
         We only extract the fields we care about.
         """
         lesson = SkemaLesson()
 
-        # b.a = aktivitetList (ArrayList) - contains class info
+        # b.a = ? (type 25)
+        a = self._read_object()
+
+        # b.b = ? (string)
+        b = self._read_string()
+
+        # b.c = ? (type 7 = UDate)
+        c = self._read_object()
+
+        # b.d = ? (type 217)
+        d = self._read_object()
+
+        # b.e = aktivitetList (ArrayList) - contains class info
         aktivitet_list = self._read_object()
 
         # Extract class_name from aktivitet_list
@@ -749,132 +763,132 @@ class GWTDeserializer:
                     lesson.class_name = akt['d']
                     break
 
-        # b.c = bemerkning (string)
+        # b.g = bemerkning (string)
         bemerkning = self._read_string()
 
-        # b.d = ? (string)
-        d = self._read_string()
+        # b.i = ? (string)
+        i = self._read_string()
 
-        # b.e = ? (boolean)
-        e = self._read_bool()
+        # b.j = ? (boolean)
+        j = self._read_bool()
 
-        # b.f = ? (int)
-        f = self._pop()
+        # b.k = ? (int)
+        k = self._pop()
 
-        # b.g = ? (type 24)
-        g = self._read_object()
-
-        # b.i = ? (ArrayList)
-        i = self._read_object()
-
-        # b.j = ? (int)
-        j = self._pop()
-
-        # b.k = ? (type 24)
-        k = self._read_object()
-
-        # b.n = ? (boolean)
-        n = self._read_bool()
+        # b.n = ? (type 25)
+        n = self._read_object()
 
         # b.o = ? (ArrayList)
         o = self._read_object()
 
-        # b.p = ? (type 406)
-        p = self._read_object()
+        # b.p = ? (int)
+        p = self._pop()
 
-        # b.q = ? (int)
-        q = self._pop()
+        # b.q = ? (type 25)
+        q = self._read_object()
 
-        # b.r = ? (type 248)
-        r = self._read_object()
+        # b.r = ? (boolean)
+        r = self._read_bool()
 
-        # b.s = ? (int)
-        s = self._pop()
+        # b.s = ? (ArrayList)
+        s = self._read_object()
 
-        # b.t = skoleFag (string) - SUBJECT (found by JS debugging!)
-        skolefag = self._read_string()
-        if skolefag:
-            lesson.subject = skolefag
+        # b.t = ? (type 407)
+        t = self._read_object()
 
-        # b.u = ? (boolean)
-        u = self._read_bool()
+        # b.u = ? (int)
+        u = self._pop()
+
+        # b.v = ? (type 249)
+        v = self._read_object()
 
         # b.w = ? (int)
         w = self._pop()
 
-        # b.A = lokaleList (ArrayList) - ROOMS
+        # b.A = skoleFag (string) - SUBJECT (found by JS debugging!)
+        skolefag = self._read_string()
+        if skolefag:
+            lesson.subject = skolefag
+
+        # b.B = ? (boolean)
+        B = self._read_bool()
+
+        # b.D = ? (int)
+        D = self._pop()
+
+        # b.F = lokaleList (ArrayList) - ROOMS
         lokale_list = self._read_object()
         if isinstance(lokale_list, list):
             for lok in lokale_list:
                 if isinstance(lok, dict) and lok.get('navn'):
                     lesson.rooms.append(lok['navn'])
 
-        # b.B = ? (boolean)
-        B = self._read_bool()
+        # b.G = ? (boolean)
+        G = self._read_bool()
 
-        # b.C = medarbejderList (ArrayList) - TEACHERS
+        # b.H = medarbejderList (ArrayList) - TEACHERS
         medarbejder_list = self._read_object()
         if isinstance(medarbejder_list, list):
             for med in medarbejder_list:
                 if isinstance(med, dict) and med.get('navn'):
                     lesson.teachers.append(med['navn'])
 
-        # b.D = ? (boolean)
-        D = self._read_bool()
-
-        # b.F = ? (string)
-        F = self._read_string()
-
-        # b.G = objekt_id (type 24)
-        G = self._read_object()
-
-        # b.H = ? (string)
-        H = self._read_string()
-
         # b.I = ? (boolean)
         I = self._read_bool()
 
-        # b.J = planlegger (string)
+        # b.J = ? (string)
         J = self._read_string()
 
-        # b.K = ? (boolean)
-        K = self._read_bool()
+        # b.K = objekt_id (type 25)
+        K = self._read_object()
 
-        # b.L = ? (type 610)
-        L = self._read_object()
+        # b.L = ? (string)
+        L = self._read_string()
 
-        # b.M = ? (type 210)
-        M = self._read_object()
+        # b.M = ? (boolean)
+        M = self._read_bool()
 
-        # b.N = skema_id (Integer type 24) - THIS IS THE LESSON ID!
-        N = self._read_object()
-        if isinstance(N, int):
-            lesson.lesson_id = N
+        # b.N = planlegger (string)
+        N = self._read_string()
 
-        # b.O = ? (type 24)
-        O = self._read_object()
+        # b.O = ? (boolean)
+        O = self._read_bool()
 
-        # b.P = ? (string) - Note: Subject is actually in b.t, not here
-        P = self._read_string()
+        # b.P = ? (type 620)
+        P = self._read_object()
 
-        # b.Q = slut (UDate) - END TIME
+        # b.Q = ? (type 210)
+        Q = self._read_object()
+
+        # b.R = skema_id (Integer type 25) - THIS IS THE LESSON ID!
+        R = self._read_object()
+        if isinstance(R, int):
+            lesson.lesson_id = R
+
+        # b.S = ? (type 25)
+        S = self._read_object()
+
+        # b.T = ? (string) - Note: Subject is actually in b.A, not here
+        T = self._read_string()
+
+        # b.U = slut (UDate) - END TIME
         slut = self._read_object()
         if isinstance(slut, datetime):
             lesson.end_time = slut
 
-        # b.R = start (UDate) - START TIME
+        # b.V = start (UDate) - START TIME
         start = self._read_object()
         if isinstance(start, datetime):
             lesson.start_time = start
 
-        # b.S = Status (SkemaBegivenhed$Status enum — sync status, not cancellation)
-        S = self._read_object()
+        # b.W = Status (SkemaBegivenhed$Status enum — sync status, not cancellation)
+        W = self._read_object()
 
-        # b.T = ? (int)
-        T = self._pop()
+        # b.X = ? (int)
+        X = self._pop()
 
-        # b.V = ? (boolean)
-        V = self._read_bool()
+        # b.Z = ? (boolean)
+        Z = self._read_bool()
 
         # Note from bemerkning
         if bemerkning:

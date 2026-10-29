@@ -254,7 +254,7 @@ class StudiePlusRequestsScraper(BaseStudiePlusScraper):
         """
         Get the file container_id for a lesson by calling hentNoteForSkema.
 
-        The schedule's SkemaNote2.c is NOT the file container — we need to call
+        The schedule's SkemaNote2.d is NOT the file container — we need to call
         hentNoteForSkema(lesson_id) to get the Note which contains the actual
         file container_id in its nested SkemaNote2.
         """
@@ -570,9 +570,9 @@ class StudiePlusRequestsScraper(BaseStudiePlusScraper):
         Fetch SkemaNote2 for a specific lesson.
 
         Returns dict with:
-        - has_files: bool (from SkemaNote2.d)
-        - homework_text: str (from SkemaNote2.e)
-        - note_text: str (from SkemaNote2.g)
+        - has_files: bool (from SkemaNote2.e)
+        - homework_text: str (from SkemaNote2.g)
+        - note_text: str (from SkemaNote2.j)
         """
         if not self.login():
             return None
