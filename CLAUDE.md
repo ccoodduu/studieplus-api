@@ -53,34 +53,38 @@ function Lzg(a, b) {
 }
 ```
 
-### SkemaNote2 (hAg — source_babel_inlined.js:53626)
-16 felter. **VIGTIGT:** `b.c` er IKKE fil-container. `b.n` er fil-container.
+### SkemaNote2 (JFg i nuværende skema-JS)
+17 felter (`b.a` blev tilføjet forrest i okt. 2026, så resten rykkede ét bogstav).
+**VIGTIGT:** `b.d` er IKKE fil-container. `b.o` er fil-container.
 ```
-b.a  = int              — note ID
-b.b  = string           — klasse-navn (f.eks. "htxqr24")
-b.c  = int              — schedule container_id (IKKE til filer!)
-b.d  = boolean          — has_files
-b.e  = string           — lektier tekst
+b.a  = object (Integer) — ny, ukendt betydning
+b.b  = int              — note ID
+b.c  = string           — klasse-navn (f.eks. "htxqr24")
+b.d  = int              — schedule container_id (IKKE til filer!)
+b.e  = boolean          — has_files
 b.f  = string           — lektier HTML
-b.g  = string           — note tekst
+b.g  = string           — lektier tekst
 b.i  = string           — note HTML
-b.j  = object (Integer) — schedule container (samme som b.c)
-b.k  = string
-b.n  = object (Integer) — FILE container_id (BRUG DENNE til filer!)
-b.o  = object (UDate)
-b.p  = object (Integer)
-b.q  = int
+b.j  = string           — note tekst
+b.k  = object (Integer) — schedule container (samme som b.d)
+b.n  = string
+b.o  = object (Integer) — FILE container_id (BRUG DENNE til filer!)
+b.p  = object (UDate)
+b.q  = object (Integer)
 b.r  = int
-b.s  = string
+b.s  = int
+b.t  = string
 ```
 
-### SkemaBegivenhed (Dqg — source_babel_inlined.js:62180)
-Vigtige felter:
-- `b.P` = skoleFag (subject/fag)
-- `b.Q` = slut (UDate)
-- `b.R` = start (UDate)
-- `b.A` = lokaleList (ArrayList af LokalerISkema)
-- `b.C` = medarbejderList (ArrayList af MedarbejderISkema)
+### SkemaBegivenhed (_vg i nuværende skema-JS)
+42 felter (`b.a`-`b.d` blev tilføjet forrest i okt. 2026). Vigtige felter:
+- `b.e` = aktivitetList (ArrayList af AktiviteterISkema — klasse-navn)
+- `b.A` = skoleFag (subject/fag)
+- `b.F` = lokaleList (ArrayList af LokalerISkema)
+- `b.H` = medarbejderList (ArrayList af MedarbejderISkema)
+- `b.R` = skema_id (Integer — lesson ID)
+- `b.U` = slut (UDate)
+- `b.V` = start (UDate)
 
 ### ArrayList, UDate, LokalerISkema, MedarbejderISkema
 Se `gwt_deserializer.py` for implementering — følger JS præcist.
@@ -100,7 +104,7 @@ Bekræftet via Playwright network capture. Websiden bruger dette flow:
 2. **`ressourceservice.findRessourcerPerContainer(file_container_id, SKEMANOTE=12)`** → filliste
 3. **`ressourceservice.hentRessourceUrl(fileId, "")`** → signeret S3 URL
 
-`file_container_id` kommer fra SkemaNote2 felt `b.n` (IKKE `b.c`).
+`file_container_id` kommer fra SkemaNote2 felt `b.o` (IKKE `b.d`).
 `hentRessourceUrl` tager fil-ID og en TOM string som 2. parameter.
 
 ### Signerede URLs

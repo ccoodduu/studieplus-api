@@ -57,32 +57,44 @@ class Payload:
 def write_lesson(p, extra_object=None):
     """SkemaBegivenhed, field by field in the order of the JS deserializer."""
     p.obj(f"{SKEMA}.SkemaBegivenhed")
-    p.array(1).obj(f"{SKEMA}.SkemaBegivenhed$AktiviteterISkema").int(1).int(2).string("HOLD").string("htxqr24").int(3)  # a
-    p.string(None).string(None).bool(False).int(0)                                    # c, d, e, f
+    p.null().string(None).null().null()                                                # a, b, c, d
+    p.array(1).obj(f"{SKEMA}.SkemaBegivenhed$AktiviteterISkema").int(1).int(2).string("HOLD").string("htxqr24").int(3)  # e
+    p.string(None).string(None).bool(False).int(0)                                    # g, i, j, k
     if extra_object:
-        extra_object(p)                                                                # g
+        extra_object(p)                                                                # n
     else:
         p.null()
-    p.array(2)                                                                         # i
+    p.array(2)                                                                         # o
     for name in ("Elev Et", "Elev To"):
         p.obj(f"{SKEMA}.SkemaBegivenhed$ElevISkema").string("E1").string(name).int(7).string("htxqr24")
-    p.int(0).null().bool(False)                                                        # j, k, n
-    p.array(1).obj(f"{SKEMA}.SkemaBegivenhed$FagISkema").int(5).string("Matematik")    # o
-    p.null().int(0).null().int(0)                                                      # p, q, r, s
-    p.string("Matematik").bool(False).int(0)                                           # t, u, w
-    p.array(1).obj(f"{SKEMA}.SkemaBegivenhed$LokalerISkema").int(11).string("M1304").int(0)  # A
-    p.bool(False)                                                                      # B
-    p.array(1).obj(f"{SKEMA}.SkemaBegivenhed$MedarbejderISkema").int(21).string("abcd").int(0).null()  # C
-    p.bool(False).string(None).null().string(None).bool(False).string(None).bool(False)  # D, F, G, H, I, J, K
-    p.null().null()                                                                    # L, M
-    p.obj("java.lang.Integer").int(8529907)                                            # N (lesson id)
-    p.null().string(None)                                                              # O, P
-    p.udate(END).udate(START)                                                          # Q, R
-    p.obj(f"{SKEMA}.SkemaBegivenhed$Status").int(0)                                    # S
-    p.int(0).bool(False)                                                               # T, V
+    p.int(0).null().bool(False)                                                        # p, q, r
+    p.array(1).obj(f"{SKEMA}.SkemaBegivenhed$FagISkema").int(5).string("Matematik")    # s
+    p.null().int(0).null().int(0)                                                      # t, u, v, w
+    p.string("Matematik").bool(False).int(0)                                           # A, B, D
+    p.array(1).obj(f"{SKEMA}.SkemaBegivenhed$LokalerISkema").int(11).string("M1304").int(0)  # F
+    p.bool(False)                                                                      # G
+    p.array(1).obj(f"{SKEMA}.SkemaBegivenhed$MedarbejderISkema").int(21).string("abcd").int(0).null()  # H
+    p.bool(False).string(None).null().string(None).bool(False).string(None).bool(False)  # I, J, K, L, M, N, O
+    p.null().null()                                                                    # P, Q
+    p.obj("java.lang.Integer").int(8529907)                                            # R (lesson id)
+    p.null().string(None)                                                              # S, T
+    p.udate(END).udate(START)                                                          # U, V
+    p.obj(f"{SKEMA}.SkemaBegivenhed$Status").int(0)                                    # W
+    p.int(0).bool(False)                                                               # X, Z
 
 
-def schedule_response(extra_object=None, unread_values=0):
+def write_skema_note(p):
+    """SkemaNote2, field by field in the order of the JS deserializer."""
+    p.obj("dk.uddata.model.skemanoter.SkemaNote2")
+    p.null().int(45101).string("htxqr24").int(148426).bool(True)          # a, b, c, d, e
+    p.string("<p>Læs kapitel 3</p>").string("Læs kapitel 3")              # f, g
+    p.string("<div>Husk lommeregner</div>").string("Husk lommeregner")    # i, j
+    p.obj("java.lang.Integer").int(148426).string(None)                   # k, n
+    p.obj("java.lang.Integer").int(2796774)                               # o (file container)
+    p.udate(START).null().int(0).int(0).string(None)                      # p, q, r, s, t
+
+
+def schedule_response(extra_object=None, unread_values=0, with_note=False):
     """PersSkemaData with one day containing one lesson."""
     p = Payload()
     p.obj(f"{SKEMA}.PersSkemaData")
@@ -91,7 +103,11 @@ def schedule_response(extra_object=None, unread_values=0):
     p.obj("java.util.HashMap").int(1).udate(START)         # 21: {date -> [lessons]}
     p.array(1)
     write_lesson(p, extra_object)
-    p.null()                                               # 22: notes
+    if with_note:                                          # 22: {lesson id -> note}
+        p.obj("java.util.HashMap").int(1).obj("java.lang.Integer").int(8529907)
+        write_skema_note(p)
+    else:
+        p.null()
     p.null(unread_values)
     return p.response()
 
@@ -107,6 +123,17 @@ def test_lesson_with_nested_types_parses_strictly():
     assert lesson.rooms == ["M1304"]
     assert lesson.teachers == ["abcd"]
     assert (lesson.start_time, lesson.end_time) == (START, END)
+
+
+def test_lesson_note_is_attached_to_its_lesson():
+    lessons = parse_schedule_response(schedule_response(with_note=True), strict=True)
+
+    assert len(lessons) == 1
+    lesson = lessons[0]
+    assert lesson.has_homework and lesson.homework == "Læs kapitel 3"
+    assert lesson.has_note and lesson.note == "Husk lommeregner"
+    assert lesson.has_files
+    assert lesson.file_container_id == 148426
 
 
 def test_strict_raises_when_stack_is_not_fully_consumed():
