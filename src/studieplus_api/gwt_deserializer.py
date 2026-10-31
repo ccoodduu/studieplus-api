@@ -1043,10 +1043,11 @@ class GWTDeserializer:
         """
         Deserialize Bruger base class (d7c function in current opgave JS).
 
-        Reads 25 fields total — verified against live opgave cache.js.
-        Field 25 (b.sb) was added in a server-side update; missing it caused
+        Reads 26 fields total — verified against live opgave cache.js (s7c).
+        Field 26 (b.tb) was added in a server-side update; missing it caused
         every downstream object to misalign and made parse_assignments
-        return an empty list.
+        return an empty list. Field 11 (an untyped object) was added in front
+        of the name in Oct 2026, shifting every later field by one.
         """
         f1 = self._read_object()     # 1. tqb(kic, 500)
         f2 = self._read_object()     # 2. tqb(kic, 44) — UDate
@@ -1058,24 +1059,25 @@ class GWTDeserializer:
         f8 = self._read_string()     # 8. ric(pop)
         f9 = self._read_string()     # 9. ric(pop) — initials
         f10 = self._read_object()    # 10. tqb(kic, 44)
-        f11 = self._read_string()    # 11. ric(pop) — name
-        f12 = self._read_string()    # 12. ric(pop)
-        f13 = self._read_object()    # 13. vqb(kic)
-        f14 = self._read_object()    # 14. tqb(kic, 22)
-        f15 = self._read_object()    # 15. vqb(kic)
+        f11 = self._read_object()    # 11. vqb(kic) — added Oct 2026
+        f12 = self._read_string()    # 12. ric(pop) — name
+        f13 = self._read_string()    # 13. ric(pop)
+        f14 = self._read_object()    # 14. vqb(kic)
+        f15 = self._read_object()    # 15. tqb(kic, 22)
         f16 = self._read_object()    # 16. vqb(kic)
         f17 = self._read_object()    # 17. vqb(kic)
-        f18 = self._read_object()    # 18. tqb(kic, 10)
-        f19 = self._read_object()    # 19. tqb(kic, 201)
-        f20 = self._read_object()    # 20. tqb(kic, 10)
+        f18 = self._read_object()    # 18. vqb(kic)
+        f19 = self._read_object()    # 19. tqb(kic, 10)
+        f20 = self._read_object()    # 20. tqb(kic, 200)
         f21 = self._read_object()    # 21. tqb(kic, 10)
-        f22 = self._read_string()    # 22. ric(pop)
+        f22 = self._read_object()    # 22. tqb(kic, 10)
         f23 = self._read_string()    # 23. ric(pop)
         f24 = self._read_string()    # 24. ric(pop)
-        f25 = self._read_string()    # 25. ric(pop) — b.sb (added in server update)
+        f25 = self._read_string()    # 25. ric(pop)
+        f26 = self._read_string()    # 26. ric(pop) — b.tb
 
         return {
-            'name': f11 or '',
+            'name': f12 or '',
             'initials': f9 or '',
         }
 

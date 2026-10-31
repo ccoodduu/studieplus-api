@@ -237,10 +237,30 @@ def write_opgave_elev(p, student_time, subject_total_hours):
     p.null(3).bool(False)                                             # object, UDate, UDate, boolean
 
 
-def write_aflevering(p, write_opgave):
+def write_bruger(p):
+    """Bruger base class, field by field in the order of the JS deserializer (26 fields)."""
+    p.null(2).string(None).null().string(None).string(None)           # object, UDate, string, object, string, string
+    p.null().string("Test Elev").string(None).null()                  # object, string, string, UDate
+    p.null().string("telev").string(None)                             # object, string, string
+    p.null(9)                                                         # 9 objects
+    p.string(None).string(None).string(None).string(None)             # 4 strings
+
+
+def write_elev(p):
+    """Elev, field by field in the order of the JS deserializer, followed by its Bruger base."""
+    p.obj("dk.uddata.model.bruger.Elev")
+    p.null(2).bool(False).null().string(None).null(2).bool(False)     # 2 objects, boolean, object, string, 2 objects, boolean
+    p.null().string("12345").null().string(None).string(None)         # object, string, object, string, string
+    p.null().bool(False).string(None).null()                          # object, boolean, string, object
+    write_bruger(p)
+
+
+def write_aflevering(p, write_opgave, write_student=lambda p: p.null()):
     """Aflevering, field by field in the order of the JS deserializer."""
     p.obj("dk.uddata.model.opgave.Aflevering")
-    p.null(3).int(2813754).null(2).bool(False).bool(False).null()     # 3 objects, int, 2 objects, 2 booleans, object
+    p.null(3).int(2813754)                                            # 3 objects, int
+    write_student(p)                                                  # Elev
+    p.null().bool(False).bool(False).null()                           # object, 2 booleans, object
     write_opgave(p)                                                   # OpgaveElev
     p.null().bool(False).null()                                       # AfleveringStatus, boolean, ArrayList
 
@@ -255,3 +275,14 @@ def test_assignment_hours_are_the_assignments_own_student_time():
     assert assignment["subject"] == "Matematik"
     assert assignment["student_time"] == "5.0"
     assert assignment["subject_budget_hours"] == "121.0"
+
+
+def test_assignment_with_student_parses_strictly():
+    """The Bruger base class gains fields over time; a miscount misaligns every later Aflevering."""
+    p = Payload().array(2)
+    for _ in range(2):
+        write_aflevering(p, lambda p: write_opgave_elev(p, student_time=5, subject_total_hours=121), write_elev)
+
+    assignments = GWTDeserializer(p.response()).parse_assignments(strict=True)
+
+    assert [a["subject"] for a in assignments] == ["Matematik", "Matematik"]
