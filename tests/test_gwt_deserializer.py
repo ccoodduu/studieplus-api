@@ -227,10 +227,11 @@ def test_assignment_title_html_entities_are_decoded(monkeypatch):
     assert assignment["description"] == opgave["description"]
 
 
-def write_opgave_elev(p, student_time, subject_total_hours):
+def write_opgave_elev(p, student_time, subject_total_hours, deadline=None):
     """OpgaveElev, field by field in the order of the JS deserializer."""
     p.obj("dk.uddata.model.opgave.OpgaveElev")
-    p.null().int(42).string("htxqr24").null().string("<p>Opgave</p>")  # object, int, string, object, string
+    p.udate(deadline) if deadline else p.null()                       # UDate (deadline)
+    p.int(42).string("htxqr24").null().string("<p>Opgave</p>")        # int, string, object, string
     p.int(student_time).int(subject_total_hours)                      # Number, Number
     p.null(2).int(44).null().int(7).int(0)                            # object, object, int, object, int, int
     p.string("Matematik").bool(False).string("MatAMaj2014")           # string, boolean, string
@@ -286,3 +287,18 @@ def test_assignment_with_student_parses_strictly():
     assignments = GWTDeserializer(p.response()).parse_assignments(strict=True)
 
     assert [a["subject"] for a in assignments] == ["Matematik", "Matematik"]
+
+
+@pytest.mark.parametrize("deadline, week", [
+    (datetime(2026, 11, 6, 23, 59), "45"),
+    (datetime(2027, 1, 1, 12, 0), "53"),   # belongs to ISO week 53 of 2026
+    (None, ""),
+])
+def test_assignment_week_is_iso_week_of_deadline(deadline, week):
+    """Studie+ shows the ISO week of OpgaveElev.f; OpgaveElev.r is an id, not the week."""
+    p = Payload().array(1)
+    write_aflevering(p, lambda p: write_opgave_elev(p, 5, 121, deadline=deadline))
+
+    [assignment] = GWTDeserializer(p.response()).parse_assignments(strict=True)
+
+    assert assignment["week"] == week

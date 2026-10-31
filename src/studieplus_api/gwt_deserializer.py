@@ -950,8 +950,7 @@ class GWTDeserializer:
         - title (b.v)
         - student_time (b.n)
         - subject_total_hours (b.o)
-        - week (b.r)
-        - deadline (b.D)
+        - deadline (b.f, also the source of the week column)
         - start_date (b.C)
 
         Fields read in order:
@@ -964,7 +963,7 @@ class GWTDeserializer:
         nhd(b, Pic(a))        -> b.o = float (Fordybelsestid summed over the subject)
         ohd(b, Fic(a), 10)    -> b.p = object
         phd(b, Fic(a), 10)    -> b.q = object
-        qhd(b, pop)           -> b.r = int (WEEK)
+        qhd(b, pop)           -> b.r = int (unique per assignment, not the week)
         rhd(b, Fic(a), 112)   -> b.s = object
         shd(b, pop)           -> b.t = int
         thd(b, pop)           -> b.u = int
@@ -985,7 +984,7 @@ class GWTDeserializer:
         o = float(self._pop())       # Fordybelsestid summed over the subject (Pic = Number = float)
         p = self._read_object()      # type 10
         q = self._read_object()      # type 10
-        r = self._pop()              # WEEK number
+        r = self._pop()              # int (unique per assignment, not the week)
         s = self._read_object()      # type 112
         t = self._pop()              # int
         u = self._pop()              # int
@@ -1005,7 +1004,6 @@ class GWTDeserializer:
             'title': A,
             'student_time': n,
             'subject_total_hours': o,
-            'week': r,
             'start_date': C,
             'deadline': f,
             'class_name': i,
@@ -1240,6 +1238,9 @@ class GWTDeserializer:
             elif isinstance(deadline, str):
                 deadline_str = deadline
 
+            # The week column in Studie+ is the ISO week of OpgaveElev.f (cvc + vvc in the JS)
+            week_str = str(deadline.isocalendar()[1]) if isinstance(deadline, datetime) else ''
+
             # Format submission date
             submission_date_str = ''
             submission_date = afl.get('submission_date')
@@ -1261,7 +1262,7 @@ class GWTDeserializer:
                 'subject_budget_hours': str(opgave.get('subject_total_hours', '')),
                 'student_time': str(opgave.get('student_time', '')),
                 'class': opgave.get('class_name', ''),
-                'week': str(opgave.get('week', '')),
+                'week': week_str,
                 'submitted': submitted,
                 'submission_date': submission_date_str,
             })

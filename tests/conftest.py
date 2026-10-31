@@ -98,6 +98,10 @@ def assert_assignment_shape(a: dict):
         assert DEADLINE_RE.match(a["deadline"]), \
             f"deadline={a['deadline']!r} does not match 'dd.mm.yyyy hh:mm'"
 
+    if a["week"]:
+        assert a["week"].isdigit() and 1 <= int(a["week"]) <= 53, \
+            f"week={a['week']!r} is not an ISO week number"
+
 
 # UTF-8 bytes decoded as latin-1 turn 'ø' into 'Ã¸', 'æ' into 'Ã¦' and so on.
 # These sequences never occur in real Danish text, so their presence means a
