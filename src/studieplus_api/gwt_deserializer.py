@@ -1041,42 +1041,43 @@ class GWTDeserializer:
 
     def _deserialize_bruger_base(self) -> dict:
         """
-        Deserialize Bruger base class (d7c function in current opgave JS).
+        Deserialize Bruger base class (s7c function in current opgave JS).
 
-        Reads 25 fields total — verified against live opgave cache.js.
-        Field 25 (b.sb) was added in a server-side update; missing it caused
-        every downstream object to misalign and made parse_assignments
-        return an empty list.
+        Reads 26 fields total — verified against live opgave cache.js.
+        Field 11 (E7c, an object) was added in a server update (Nov 2026);
+        before that, field 25 (b.sb/b.tb) was added. Missing either one
+        misaligns every downstream object and breaks parse_assignments.
         """
-        f1 = self._read_object()     # 1. tqb(kic, 500)
-        f2 = self._read_object()     # 2. tqb(kic, 44) — UDate
-        f3 = self._read_string()     # 3. ric(pop) — string
-        f4 = self._read_object()     # 4. vqb(kic)
-        f5 = self._read_string()     # 5. ric(pop)
-        f6 = self._read_string()     # 6. ric(pop)
-        f7 = self._read_object()     # 7. tqb(kic, 10)
-        f8 = self._read_string()     # 8. ric(pop)
-        f9 = self._read_string()     # 9. ric(pop) — initials
-        f10 = self._read_object()    # 10. tqb(kic, 44)
-        f11 = self._read_string()    # 11. ric(pop) — name
-        f12 = self._read_string()    # 12. ric(pop)
-        f13 = self._read_object()    # 13. vqb(kic)
-        f14 = self._read_object()    # 14. tqb(kic, 22)
-        f15 = self._read_object()    # 15. vqb(kic)
-        f16 = self._read_object()    # 16. vqb(kic)
-        f17 = self._read_object()    # 17. vqb(kic)
-        f18 = self._read_object()    # 18. tqb(kic, 10)
-        f19 = self._read_object()    # 19. tqb(kic, 201)
-        f20 = self._read_object()    # 20. tqb(kic, 10)
-        f21 = self._read_object()    # 21. tqb(kic, 10)
-        f22 = self._read_string()    # 22. ric(pop)
-        f23 = self._read_string()    # 23. ric(pop)
-        f24 = self._read_string()    # 24. ric(pop)
-        f25 = self._read_string()    # 25. ric(pop) — b.sb (added in server update)
+        f1 = self._read_object()     # 1.  u7c: Dqb(uic, 499)
+        f2 = self._read_object()     # 2.  v7c: Dqb(uic, 46) — UDate
+        f3 = self._read_string()     # 3.  w7c: string
+        f4 = self._read_object()     # 4.  x7c: Fqb(uic)
+        f5 = self._read_string()     # 5.  y7c: string
+        f6 = self._read_string()     # 6.  z7c: string
+        f7 = self._read_object()     # 7.  A7c: Dqb(uic, 10)
+        f8 = self._read_string()     # 8.  B7c: string — full name
+        f9 = self._read_string()     # 9.  C7c: string
+        f10 = self._read_object()    # 10. D7c: Dqb(uic, 46)
+        f11 = self._read_object()    # 11. E7c: Fqb(uic) (added in server update)
+        f12 = self._read_string()    # 12. F7c: string — initials (teachers) / login (students)
+        f13 = self._read_string()    # 13. G7c: string
+        f14 = self._read_object()    # 14. H7c: Fqb(uic)
+        f15 = self._read_object()    # 15. I7c: Dqb(uic, 22)
+        f16 = self._read_object()    # 16. J7c: Fqb(uic)
+        f17 = self._read_object()    # 17. K7c: Fqb(uic)
+        f18 = self._read_object()    # 18. L7c: Fqb(uic)
+        f19 = self._read_object()    # 19. M7c: Dqb(uic, 10)
+        f20 = self._read_object()    # 20. N7c: Dqb(uic, 200)
+        f21 = self._read_object()    # 21. O7c: Dqb(uic, 10)
+        f22 = self._read_object()    # 22. P7c: Dqb(uic, 10)
+        f23 = self._read_string()    # 23. Q7c: string
+        f24 = self._read_string()    # 24. R7c: string
+        f25 = self._read_string()    # 25. S7c: string
+        f26 = self._read_string()    # 26. b.tb: string
 
         return {
-            'name': f11 or '',
-            'initials': f9 or '',
+            'name': f8 or '',
+            'initials': f12 or '',
         }
 
     def _deserialize_bruger_medarbejder(self) -> dict:
@@ -1087,7 +1088,7 @@ class GWTDeserializer:
         g9c(b, pop)           -> b.yy = int
         h9c(b, pop)           -> b.zz = int
         i9c(b, Mic(a, pop))   -> b.aa = string
-        U7c(a, b)             -> Bruger base class (15 fields)
+        s7c(a, b)             -> Bruger base class (26 fields)
         """
         f9c = self._read_object()    # object (wqb)
         g9c = self._pop()            # int
@@ -1107,7 +1108,7 @@ class GWTDeserializer:
         """
         Deserialize Elev (o8c function in current opgave JS).
 
-        17 own fields + Bruger base (25 fields). Verified against live JS.
+        17 own fields + Bruger base (26 fields). Verified against live JS.
         Field 13 ($7c b8c, a string) was missing in older versions and
         caused the stack pointer to drift, silently breaking all
         subsequent Afleveringer.

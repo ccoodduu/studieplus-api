@@ -255,3 +255,50 @@ def test_assignment_hours_are_the_assignments_own_student_time():
     assert assignment["subject"] == "Matematik"
     assert assignment["student_time"] == "5.0"
     assert assignment["subject_budget_hours"] == "121.0"
+
+
+def write_bruger_base(p, name, initials):
+    """Bruger base class (26 fields), field by field in the order of the JS deserializer."""
+    p.null(2).string(None).null().string(None).string(None)          # object, UDate, string, object, string, string
+    p.null().string(name).string(None)                               # object, string (full name), string
+    p.null(2).string(initials).string(None)                          # object, object (added Nov 2026), string, string
+    p.null(9)                                                        # 9 objects
+    p.string(None).string(None).string(None).string(None)            # 4 strings
+
+
+def write_elev(p, name, login):
+    """Elev: 17 own fields, then the Bruger base class."""
+    p.obj("dk.uddata.model.bruger.Elev")
+    p.null(2).bool(False).null().string(None).null(2).bool(False).null()  # 1-9
+    p.string("12345").null().string(None).string(None).null()             # 10-14
+    p.bool(False).string(None).null()                                     # 15-17
+    write_bruger_base(p, name, login)
+
+
+def test_medarbejder_reads_all_bruger_base_fields():
+    p = Payload().obj("dk.uddata.model.bruger.Medarbejder")
+    p.null().int(1).int(2).string(None)                               # object, int, int, string
+    write_bruger_base(p, name="Lærer Navn", initials="abcd")
+    parser = GWTDeserializer(p.response())
+
+    medarbejder = parser._read_object()
+
+    assert parser.pos == 0
+    assert medarbejder["name"] == "Lærer Navn"
+    assert medarbejder["initialer"] == "abcd"
+
+
+def test_assignment_with_elev_parses_strictly():
+    """Aflevering.e is an Elev; a misread Bruger base class misaligns everything after it."""
+    p = Payload().array(1)
+    p.obj("dk.uddata.model.opgave.Aflevering")
+    p.null(3).int(2813754)                                            # 3 objects, int
+    write_elev(p, name="Elev Navn", login="elev1234")                 # Elev
+    p.null().bool(False).bool(False).null()                           # object, 2 booleans, object
+    write_opgave_elev(p, student_time=5, subject_total_hours=121)     # OpgaveElev
+    p.null().bool(False).null()                                       # AfleveringStatus, boolean, ArrayList
+
+    [assignment] = GWTDeserializer(p.response()).parse_assignments(strict=True)
+
+    assert assignment["subject"] == "Matematik"
+    assert assignment["container_id"] == 2813754
