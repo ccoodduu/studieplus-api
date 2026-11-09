@@ -286,3 +286,48 @@ def test_assignment_with_student_parses_strictly():
     assignments = GWTDeserializer(p.response()).parse_assignments(strict=True)
 
     assert [a["subject"] for a in assignments] == ["Matematik", "Matematik"]
+
+
+def note_response(with_note=True):
+    """Note returned by hentNoteForSkema: Note.a (Integer), Note.b (Medarbejder), Note.c (SkemaNote2)."""
+    p = Payload()
+    if not with_note:
+        return p.null().response()
+    p.obj("dk.uddata.model.skemanoter.Note")
+    p.obj("java.lang.Integer").int(8529907)                                # a
+    p.null()                                                               # b
+    write_skema_note(p)                                                    # c
+    return p.response()
+
+
+def note_scraper(monkeypatch, response):
+    from studieplus_api.requests_scraper import StudiePlusRequestsScraper
+
+    scraper = StudiePlusRequestsScraper(username="u", password="p", school="s")
+    monkeypatch.setattr(scraper, "login", lambda: True)
+    monkeypatch.setattr(scraper, "_get_service_hash", lambda module, service: "HASH")
+    monkeypatch.setattr(scraper, "_make_gwt_call", lambda *args, **kwargs: response)
+    return scraper
+
+
+def test_note_for_skema_reads_skema_note2(monkeypatch):
+    scraper = note_scraper(monkeypatch, note_response())
+
+    note = scraper.get_note_for_skema(8529907)
+
+    assert note == {
+        "has_files": True,
+        "homework_html": "<p>Læs kapitel 3</p>",
+        "homework_text": "Læs kapitel 3",
+        "note_html": "<div>Husk lommeregner</div>",
+        "note_text": "Husk lommeregner",
+        "file_container_id": 2796774,
+    }
+    assert scraper.get_note_file_container(8529907) == 2796774
+
+
+def test_lesson_without_note_returns_none(monkeypatch):
+    scraper = note_scraper(monkeypatch, note_response(with_note=False))
+
+    assert scraper.get_note_for_skema(8529907) is None
+    assert scraper.get_note_file_container(8529907) is None

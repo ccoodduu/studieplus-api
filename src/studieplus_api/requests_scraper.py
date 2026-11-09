@@ -250,13 +250,12 @@ class StudiePlusRequestsScraper(BaseStudiePlusScraper):
     # RESSOURCE/FILES API
     # ============================================================
 
-    def get_note_file_container(self, lesson_id: int) -> Optional[int]:
+    def _fetch_skema_note(self, lesson_id: int) -> Optional[Dict]:
         """
-        Get the file container_id for a lesson by calling hentNoteForSkema.
+        Call skemanoteservice.hentNoteForSkema(lesson_id) and return its SkemaNote2.
 
-        The schedule's SkemaNote2.d is NOT the file container — we need to call
-        hentNoteForSkema(lesson_id) to get the Note which contains the actual
-        file container_id in its nested SkemaNote2.
+        The response is a Note object (Note.c = SkemaNote2), read with the
+        GWT deserializer. Returns None if the call fails or the lesson has no note.
         """
         if not self.login():
             return None
@@ -282,32 +281,48 @@ class StudiePlusRequestsScraper(BaseStudiePlusScraper):
                 self.skema_permutation,
                 "skema"
             )
-
-            if not response.startswith('//OK'):
-                return None
-
-            deserializer = GWTDeserializer(response)
-            note = deserializer._read_object()
-
-            if not isinstance(note, dict) or note.get('_class') != 'Note':
-                logger.debug(f"Expected Note object, got: {type(note)}")
-                return None
-
-            skema_note2 = note.get('skema_note2')
-            if not isinstance(skema_note2, dict):
-                logger.debug(f"No SkemaNote2 in Note response")
-                return None
-
-            container_id = skema_note2.get('file_container_id')
-            if isinstance(container_id, int) and container_id > 0:
-                logger.info(f"Found file container_id={container_id} for lesson_id={lesson_id}")
-                return container_id
-
-            return None
-
         except Exception as e:
-            logger.debug(f"Error getting note for lesson_id={lesson_id}: {e}")
+            logger.debug(f"Error fetching note for lesson_id={lesson_id}: {e}")
             return None
+
+        if not response.startswith('//OK'):
+            logger.debug(f"Note fetch failed for lesson_id={lesson_id}: {response[:100]}")
+            return None
+
+        try:
+            note = GWTDeserializer(response)._read_object()
+        except Exception as e:
+            logger.debug(f"Error parsing note for lesson_id={lesson_id}: {e}")
+            return None
+
+        if not isinstance(note, dict) or note.get('_class') != 'Note':
+            logger.debug(f"No note for lesson_id={lesson_id}")
+            return None
+
+        skema_note2 = note.get('skema_note2')
+        if not isinstance(skema_note2, dict):
+            logger.debug(f"No SkemaNote2 in Note response for lesson_id={lesson_id}")
+            return None
+
+        return skema_note2
+
+    def get_note_file_container(self, lesson_id: int) -> Optional[int]:
+        """
+        Get the file container_id for a lesson by calling hentNoteForSkema.
+
+        The schedule's SkemaNote2.d is NOT the file container — the file
+        container_id is SkemaNote2.o of the Note returned by hentNoteForSkema.
+        """
+        skema_note2 = self._fetch_skema_note(lesson_id)
+        if not skema_note2:
+            return None
+
+        container_id = skema_note2.get('file_container_id')
+        if isinstance(container_id, int) and container_id > 0:
+            logger.info(f"Found file container_id={container_id} for lesson_id={lesson_id}")
+            return container_id
+
+        return None
 
     def get_lesson_files(self, container_id: int) -> List[Dict]:
         """
@@ -562,112 +577,31 @@ class StudiePlusRequestsScraper(BaseStudiePlusScraper):
         return files
 
     # ============================================================
-    # SCHEDULE NOTES API (for has_files detection)
+    # SCHEDULE NOTES API
     # ============================================================
 
     def get_note_for_skema(self, skema_id: int) -> Optional[Dict]:
         """
-        Fetch SkemaNote2 for a specific lesson.
+        Fetch the note (SkemaNote2) for a specific lesson via hentNoteForSkema.
 
-        Returns dict with:
-        - has_files: bool (from SkemaNote2.e)
-        - homework_text: str (from SkemaNote2.g)
-        - note_text: str (from SkemaNote2.j)
+        Returns None if the lesson has no note, otherwise a dict with:
+        - has_files: bool (SkemaNote2.e)
+        - homework_html / homework_text: str (SkemaNote2.f / .g)
+        - note_html / note_text: str (SkemaNote2.i / .j)
+        - file_container_id: int or None (SkemaNote2.o)
         """
-        if not self.login():
+        skema_note2 = self._fetch_skema_note(skema_id)
+        if not skema_note2:
             return None
 
-        # GWT-RPC payload for hentNoteForSkema
-        note_hash = self._get_service_hash("skema", "skemanoteservice")
-        payload = (
-            "7|0|5|"
-            f"{self.base_url}/skema/skema/|"
-            f"{note_hash}|"
-            "dk.uddata.services.interfaces.SkemaNote2Service|"
-            "hentNoteForSkema|"
-            "I|"
-            f"1|2|3|4|1|5|{skema_id}|"
-        )
-
-        try:
-            response = self._make_gwt_call(
-                f"{self.base_url}/skema/skemanoteservice",
-                payload,
-                self.skema_permutation,
-                "skema"
-            )
-
-            if response.startswith('//OK'):
-                return self._parse_skema_note_response(response)
-            else:
-                logger.debug(f"Note fetch failed for skema_id={skema_id}: {response[:100]}")
-                return None
-        except Exception as e:
-            logger.debug(f"Error fetching note for skema_id={skema_id}: {e}")
-            return None
-
-    def _parse_skema_note_response(self, response: str) -> Optional[Dict]:
-        """Parse SkemaNote2 response to extract has_files and other fields."""
-        try:
-            parser = GWTParser(response)
-            data = parser.data
-            strings = parser.string_table
-
-            # SkemaNote2 structure (from JS hAg function):
-            # b.a = int
-            # b.b = string
-            # b.c = int
-            # b.d = boolean (HAS_FILES!)
-            # b.e = string (homework text)
-            # b.f = string (homework HTML)
-            # b.g = string (note text)
-            # b.i = string (note HTML)
-            # ... more fields
-
-            # Find SkemaNote2 class marker
-            note_marker = None
-            for i, s in enumerate(strings):
-                if s and 'SkemaNote2/' in s:
-                    note_marker = i + 1  # 1-based index
-                    break
-
-            if not note_marker:
-                return {'has_files': False}
-
-            # Find position of SkemaNote2 marker in data
-            for i, val in enumerate(data):
-                if val == note_marker and i > 5:
-                    # Read fields from position before the marker
-                    # Stack is read backwards, so fields are: a, b_idx, c, d, e_idx, f_idx, g_idx, i_idx...
-                    pos = i - 1
-
-                    # Try to extract has_files (field d is a boolean)
-                    # Based on JS: b.d = !!a.b[--a.a] - it's the 4th field
-                    # Fields order in data (before marker): s, r, q, p, o, n, k, j, i, g, f, e, d, c, b, a
-                    # So field d is at position -13 from marker (counting backwards)
-
-                    # Simplified approach: scan for boolean pattern
-                    # has_files is a 0 or 1 int
-                    has_files = False
-
-                    # Look for the boolean field pattern
-                    for offset in range(3, min(16, pos)):
-                        val_at = data[pos - offset] if pos - offset >= 0 else None
-                        # Boolean in GWT is 0 or 1
-                        if val_at in [0, 1] and pos - offset - 1 >= 0:
-                            # Check if it's the has_files field (preceded by an int)
-                            prev_val = data[pos - offset - 1]
-                            if isinstance(prev_val, int) and prev_val >= 0:
-                                has_files = bool(val_at)
-                                break
-
-                    return {'has_files': has_files}
-
-            return {'has_files': False}
-
-        except Exception as e:
-            logger.debug(f"Error parsing note response: {e}")
-            return {'has_files': False}
+        return {
+            'has_files': bool(skema_note2.get('has_files')),
+            'homework_html': skema_note2.get('homework_html') or "",
+            'homework_text': skema_note2.get('homework_text') or "",
+            'note_html': skema_note2.get('note_html') or "",
+            'note_text': skema_note2.get('note_text') or "",
+            'file_container_id': skema_note2.get('file_container_id'),
+        }
 
     # ============================================================
     # SCHEDULE API
@@ -711,7 +645,8 @@ class StudiePlusRequestsScraper(BaseStudiePlusScraper):
 
         Args:
             week_offset: Weeks from current (0=this week, 1=next week, -1=last week)
-            fetch_notes: If True, makes additional API calls to get has_files info
+            fetch_notes: Ignored. Notes and has_files are already part of the
+                schedule response; kept so existing callers keep working.
 
         Returns: (lessons, week_number, year, dates)
         """
@@ -728,18 +663,6 @@ class StudiePlusRequestsScraper(BaseStudiePlusScraper):
 
         # Use the GWT deserializer to parse lessons
         gwt_lessons = parse_schedule_response(response)
-
-        # Build a map from lesson_id to has_files if fetch_notes is enabled
-        lesson_notes = {}
-        if fetch_notes:
-            # Get unique lesson IDs
-            unique_ids = set(gl.lesson_id for gl in gwt_lessons if gl.lesson_id > 0)
-            logger.info(f"Fetching notes for {len(unique_ids)} unique lessons...")
-
-            for lesson_id in unique_ids:
-                note_data = self.get_note_for_skema(lesson_id)
-                if note_data:
-                    lesson_notes[lesson_id] = note_data
 
         # Convert to dict format compatible with existing API
         weekday_names = ["Mandag", "Tirsdag", "Onsdag", "Torsdag", "Fredag", "Lørdag", "Søndag"]
